@@ -1,0 +1,71 @@
+﻿using BigSchool1.Models;
+using BigSchool1.ViewModels;
+using Microsoft.AspNet.Identity;
+using System;
+using System.Collections.Generic;
+using System.Data.Entity;
+using System.Linq;
+using System.Web;
+using System.Web.Mvc;
+
+namespace BigSchool1.Controllers
+{
+    public class CoursesController : Controller
+    {
+        private readonly ApplicationDbContext _dbcontext;
+
+        public CoursesController()
+        {
+            _dbcontext = new ApplicationDbContext();
+        }
+        [Authorize]
+        public ActionResult Attending()
+        {
+            var userId = User.Identity.GetUserId();
+            var courses = _dbcontext.Attendances
+                 .Where(a => a.AttendeeId == userId)
+                 .Select(a => a.Course )
+                 .Include(l => l.Lecturer)
+                 .Include(l => l.Category)
+                 .ToList();
+            var viewModel = new CoursesViewModel
+            {
+                UpcommingCourses = courses,
+                ShowAction = User.Identity.IsAuthenticated
+            };
+            return View(viewModel);
+        }
+        // GET: Courses
+        [Authorize]
+        public ActionResult Create()
+        {
+            var viewModel = new CourseViewModel
+            {
+                Categories = _dbcontext.Categories.ToList()
+            };
+            return View(viewModel);
+        }
+        [Authorize]
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public ActionResult Create(CourseViewModel viewModel)
+        {
+            if (!ModelState.IsValid)
+            {
+                viewModel.Categories = _dbcontext.Categories.ToList();
+                return View("Create", viewModel);
+
+            }
+            var course = new Course
+            {
+                LecturerId = User.Identity.GetUserId(),
+                DateTime = viewModel.GetDateTime(),
+                CategoryId = viewModel.Category,
+                Place = viewModel.Place,
+            };
+            _dbcontext.Courses.Add(course);
+            _dbcontext.SaveChanges();
+            return RedirectToAction("Index", "Home");
+        }
+    }
+}
